@@ -170,14 +170,6 @@ kibi follows the [XDG Base Directory Specification](https://specifications.freed
 
 Syntax highlighting configuration files can be located at `%APPDATA%\Kibi\syntax.d\<file_name>.ini`.
 
-## Why Kibi?
-
-1. Porting the `kilo` source code from C to Rust and trying to make it idiomatic
-   was interesting
-2. Implementing new features while under the 1024-line constraint is a good challenge
-3. Most importantly, I wanted to learn Rust and this was a great project to
-   start (thanks Reddit for the idea)
-
 ## Contributors
 
 This project follows the [all-contributors](https://allcontributors.org/) specification
