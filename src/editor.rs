@@ -5,7 +5,7 @@
 use std::fmt::{Display, Write as _};
 use std::io::{self, BufRead, BufReader, ErrorKind, Read, Seek, Write};
 use std::iter::{self, repeat, successors as scsr};
-use std::{fs::File, path::Path, process::Command, time::Instant};
+use std::{fs::File, path::Path, time::Instant};
 
 use crate::row::{HlState, Row};
 use crate::{Config, Error, ansi_escape::*, syntax::Conf as SyntaxConf, sys, terminal};
@@ -21,13 +21,13 @@ const CUT: u8 = ctrl_key(b'X');
 const COPY: u8 = ctrl_key(b'C');
 const PASTE: u8 = ctrl_key(b'V');
 const DUPLICATE: u8 = ctrl_key(b'D');
-const EXECUTE: u8 = ctrl_key(b'E');
+const TOGGLE_LINE_NUM: u8 = ctrl_key(b'E');
 const REMOVE_LINE: u8 = ctrl_key(b'R');
 const TOGGLE_COMMENT: u8 = 31;
 const BACKSPACE: u8 = 127;
 
 const WELCOME_MESSAGE: &str = concat!("Kibi ", env!("CARGO_PKG_VERSION"));
-const HELP_MESSAGE: &str = "^S save | ^Q quit | ^F find | ^G go to | ^D duplicate | ^E execute | \
+const HELP_MESSAGE: &str = "^S save | ^Q quit | ^F find | ^G go to | ^D duplicate | ^E line nums | \
                             ^C copy | ^X cut | ^V paste | ^/ comment";
 
 /// `set_status!` sets a formatted status message for the editor.
@@ -86,8 +86,8 @@ impl CursorState {
 /// editor.
 #[derive(Default)]
 pub struct Editor {
-    /// If not `None`, the current prompt mode (`Save`, `Find`, `GoTo`, or
-    /// `Execute`). If `None`, we are in regular edition mode.
+    /// If not `None`, the current prompt mode (`Save`, `Find`, or `GoTo`).
+    /// If `None`, we are in regular edition mode.
     prompt_mode: Option<PromptMode>,
     /// The current state of the cursor.
     cursor: CursorState,
@@ -664,7 +664,10 @@ impl Editor {
             Key::Char(COPY) => self.copy_current_row(),
             Key::Char(PASTE) => self.paste_current_row(),
             Key::Char(TOGGLE_COMMENT) => self.toggle_comment(),
-            Key::Char(EXECUTE) => prompt_mode = Some(PromptMode::Execute(String::new())),
+            Key::Char(TOGGLE_LINE_NUM) => {
+                self.config.show_line_num = !self.config.show_line_num;
+                self.update_screen_cols();
+            }
             Key::Char(c) => self.insert_byte(*c),
         }
         self.quit_times = if reset_quit_times { 0 } else { self.quit_times + 1 };
@@ -772,8 +775,6 @@ enum PromptMode {
     Find(String, CursorState, Option<usize>),
     /// GoTo(prompt buffer)
     GoTo(String),
-    /// Execute(prompt buffer)
-    Execute(String),
 }
 
 // TODO: Use trait with mode_status_msg and process_keypress, implement the
@@ -785,7 +786,6 @@ impl PromptMode {
             Self::Save(buffer) => format!("Save as: {buffer}"),
             Self::Find(buffer, ..) => format!("Search (Use ESC/Arrows/Enter): {buffer}"),
             Self::GoTo(buffer) => format!("Enter line number[:column number]: {buffer}"),
-            Self::Execute(buffer) => format!("Command to execute: {buffer}"),
         }
     }
 
@@ -838,22 +838,6 @@ impl PromptMode {
                         }
                         (Err(e), _) | (_, Err(e)) => set_status!(ed, "Parsing error: {e}"),
                         (Ok(None), _) => (),
-                    }
-                }
-            },
-            Self::Execute(b) => match process_prompt_keypress(b, key) {
-                PromptState::Active(b) => return Some(Self::Execute(b)),
-                PromptState::Cancelled => (),
-                PromptState::Completed(b) => {
-                    let mut args = b.split_whitespace();
-                    match Command::new(args.next().unwrap_or_default()).args(args).output() {
-                        Ok(out) if !out.status.success() =>
-                            set_status!(ed, "{}", String::from_utf8_lossy(&out.stderr).trim_end()),
-                        Ok(out) => out.stdout.into_iter().for_each(|c| match c {
-                            b'\n' => ed.insert_new_line(),
-                            c => ed.insert_byte(c),
-                        }),
-                        Err(e) => set_status!(ed, "{e}"),
                     }
                 }
             },

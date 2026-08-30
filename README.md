@@ -10,25 +10,6 @@ SPDX-License-Identifier: MIT or Apache-2.0
 
 # Kibi: A text editor in ≤1024 lines of code, written in Rust
 
-[![Build Status](https://github.com/ilai-deutel/kibi/actions/workflows/ci.yml/badge.svg)](https://github.com/ilai-deutel/kibi/actions/workflows/ci.yml)
-[![Lines of code](https://github.com/ilai-deutel/kibi/actions/workflows/loc.yml/badge.svg)](https://github.com/ilai-deutel/kibi/actions/workflows/loc.yml)
-[![CodeQL](https://github.com/ilai-deutel/kibi/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ilai-deutel/kibi/actions/workflows/github-code-scanning/codeql)
-[![Crate](https://img.shields.io/crates/v/kibi.svg)](https://crates.io/crates/kibi)
-[![Platform](https://img.shields.io/badge/platform-Linux%20|%20macOS%20|%20Windows%2010%20|%20WASI-blue)](#)
-[![Packaging status](https://repology.org/badge/tiny-repos/kibi.svg)](https://repology.org/project/kibi/versions)
-[![Dependency Status](https://deps.rs/repo/github/ilai-deutel/kibi/status.svg)](https://deps.rs/repo/github/ilai-deutel/kibi)
-[![Coverage Status](https://coveralls.io/repos/github/ilai-deutel/kibi/badge.svg)](https://coveralls.io/github/ilai-deutel/kibi)
-[![License](https://img.shields.io/crates/l/kibi?color=blue)](#license)
-[![REUSE status](https://api.reuse.software/badge/github.com/ilai-deutel/kibi)](https://api.reuse.software/info/github.com/ilai-deutel/kibi)
-[![Rust Report Card](https://rust-reportcard.xuri.me/badge/github.com/ilai-deutel/kibi)](https://rust-reportcard.xuri.me/report/github.com/ilai-deutel/kibi)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ilai-deutel/kibi/badge)](https://scorecard.dev/viewer/?uri=github.com/ilai-deutel/kibi)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11296/badge)](https://www.bestpractices.dev/projects/11296)
-[![Socket Badge](https://badge.socket.dev/cargo/package/kibi)](https://socket.dev/cargo/package/kibi)
-[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-3.0-5E0D73.svg?logo=contributorcovenant)](CODE_OF_CONDUCT.md)<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-47-orange.svg)](#contributors)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
-
 [![Kibi in action: creating and editing a file, with syntax highlighting and search feature](assets/recording.svg)](https://asciinema.org/a/KY7tKPlxHXqRdJiv5KaTJbPj5)
 
 A configurable text editor with UTF-8 support, incremental search, syntax
@@ -40,202 +21,57 @@ lines[^1] of Rust with minimal dependencies.
 Kibi is compatible with Linux, macOS, Windows
 10[^2], and WASI.
 
-[^2]: Kibi requires the terminal to support ANSI escape sequences. Windows 10 version 1703 ([Creators Update](https://devblogs.microsoft.com/commandline/windows-10-creators-update-whats-new-in-bashwsl-windows-console), April 2017) and above are supported.</sub>
+[^2]: Kibi requires the terminal to support ANSI escape sequences. Windows 10 version 1703 ([Creators Update](https://devblogs.microsoft.com/commandline/windows-10-creators-update-whats-new-in-bashwsl-windows-console), April 2017) and above are supported.
 
 This project is inspired by [`kilo`](https://github.com/antirez/kilo), a text
 editor written in C.
-See [comparison](#comparison-with-kilo) below for a list of additional features.
-
-Contributions are welcome! Be careful to stay below the 1024-line limit...
 
 ## Table of contents
 
 - [Installation](#installation)
-  - [With cargo](#with-cargo)
-  - [Arch User Repository (Arch Linux)](#arch-user-repository-arch-linux)
-  - [Android (with Termux)](#android-with-termux)
-  - [Fedora/CentOS](#fedoracentos)
-  - [NetBSD](#netbsd)
-  - [Flatpak](#flatpak)
 - [Usage](#usage)
   - [Keyboard shortcuts](#keyboard-shortcuts)
   - [Configuration](#configuration)
     - [Global configuration](#global-configuration)
     - [Syntax highlighting](#syntax-highlighting)
-- [Comparison with kilo](#comparison-with-kilo)
-- [Contributing](#contributing)
-- [Dependencies](#dependencies)
 - [Why Kibi?](#why-kibi)
 - [Contributors](#contributors)
 - [License](#license)
 
 ## Installation
 
-<!-- markdownlint-disable no-inline-html -->
-<a href="https://repology.org/project/kibi/versions">
-    <img src="https://repology.org/badge/vertical-allrepos/kibi.svg"
-    alt="Packaging status" align="right">
-</a>
-<!-- markdownlint-enable no-inline-html -->
-
-### With `cargo`
-
-You can install Kibi with [`cargo`](https://github.com/rust-lang/cargo/):
+### Build from source
 
 ```bash
-cargo install kibi
+git clone https://github.com/Marmottons/kibi.git
+cd kibi
+cargo build --release
+```
+
+The binary will be at `target/release/kibi`.
+
+Optionally, install it system-wide:
+
+```bash
+cargo install --path .
 ```
 
 Syntax highlighting configuration files are available in the
-[`syntax.d`](syntax.d) directory of this repository. They need to be placed in
-one of the configuration directories mentioned in the
+[`syntax.d`](syntax.d) directory. They need to be placed in one of the
+configuration directories mentioned in the
 [Configuration/Syntax Highlighting](#syntax-highlighting) section.
 
 For instance:
 
 ```bash
-cd ~/repos
-git clone https://github.com/ilai-deutel/kibi.git
 mkdir -p ~/.local/share/kibi/
-ln -sr ./kibi/syntax.d ~/.local/share/kibi/syntax.d
+ln -sr ./syntax.d ~/.local/share/kibi/syntax.d
 ```
-
-### Arch User Repository (Arch Linux)
-
-3 packages are available on the AUR:
-[`kibi`](https://aur.archlinux.org/packages/kibi) and
-[`kibi-bin`](https://aur.archlinux.org/packages/kibi-bin).
-[`kibi-git`](https://aur.archlinux.org/packages/kibi-git).
-
-<!-- markdownlint-disable-next-line no-inline-html -->
-<details><summary>Installation instructions: <code>kibi</code></summary>
-
-1. Installation with an AUR helper, for instance using `paru`:
-
-   ```bash
-   paru -Syu kibi
-   ```
-
-2. Install manually with `makepkg`:
-
-   ```bash
-   git clone https://aur.archlinux.org/kibi.git
-   cd kibi
-   makepkg -si
-   ```
-
-</details>
-<!-- markdownlint-disable-next-line no-inline-html -->
-<details><summary>Installation instructions: <code>kibi-bin</code></summary>
-
-1. Installation with an AUR helper, for instance using `paru`:
-
-   ```bash
-   paru -Syu --pgpfetch kibi-bin
-   ```
-
-2. Install manually with `makepkg`:
-
-   ```bash
-   gpg --keyserver keys.openpgp.org  --recv-keys 102588418FF7E165696490A206E8A973494808A2
-   git clone https://aur.archlinux.org/kibi-bin.git
-   cd kibi-bin
-   makepkg -si
-   ```
-
-</details>
-
-<!-- markdownlint-disable-next-line no-inline-html -->
-<details><summary>Installation instructions: <code>kibi-git</code></summary>
-
-1. Installation with an AUR helper, for instance using `paru`:
-
-   ```bash
-   paru -Syu kibi-git
-   ```
-
-2. Install manually with `makepkg`:
-
-   ```bash
-   git clone https://aur.archlinux.org/kibi-git.git
-   cd kibi-git
-   makepkg -si
-   ```
-
-</details>
-
-### Android (with Termux)
-
-Kibi is available as [a Termux package](https://github.com/termux/termux-packages/tree/master/packages/kibi).
-
-<details><summary>Installation instructions</summary>
-
-1. Install Termux:
-
-   [![Get it on F-Droid"](https://user-images.githubusercontent.com/10098207/80576418-fe805600-89b9-11ea-82a5-7dc00c0ccc50.png)](https://f-droid.org/repository/browse/?fdid=com.termux)
-   [![Get it on Google Play"](https://user-images.githubusercontent.com/10098207/80576344-e27cb480-89b9-11ea-9fa6-08ec94af10cb.png)](https://play.google.com/store/apps/details?id=com.termux)
-
-2. Install Kibi within Termux: `pkg install kibi`
-
-</details>
-
-### Fedora/CentOS
-
-The package is available in COPR as [`atim/kibi`](https://copr.fedorainfracloud.org/coprs/atim/kibi).
-
-<details><summary>Installation instructions</summary>
-
-```bash
-sudo dnf copr enable atim/kibi -y
-sudo dnf install kibi
-```
-
-</details>
-
-### NetBSD
-
-Kibi is available from [the official repos](https://cdn.netbsd.org/pub/pkgsrc/current/pkgsrc/editors/kibi/README.html).
-
-<details><summary>Installation instructions</summary>
-
-Install using:
-
-```bash
-pkgin install kibi
-```
-
-or build from source:
-
-```bash
-cd /usr/pkgsrc/editors/kibi
-make install
-```
-
-</details>
-
-### Flatpak
-
-Kibi is available [on Flathub](https://flathub.org/en/apps/com.github.ilai_deutel.kibi).
-
-<details><summary>Command line instructions</summary>
- The flatpak can be installed using:
-
-```bash
-flatpak install flathub com.github.ilai_deutel.kibi
-```
-
-You can then run Kibi with:
-
-```bash
-flatpak run com.github.ilai_deutel.kibi
-```
-
-</details>
 
 ## Usage
 
 ```bash
-kibi              # Start an new text buffer
+kibi              # Start a new text buffer
 kibi <file path>  # Open a file
 kibi --version    # Print version information and exit
 ```
@@ -249,7 +85,7 @@ kibi --version    # Print version information and exit
 | <kbd>Ctrl</kbd> + <kbd>G</kbd> | Go to `<line number>[:<column number>]` position              |
 | <kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit                                                          |
 | <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate the current row                                     |
-| <kbd>Ctrl</kbd> + <kbd>E</kbd> | Execute an external command and paste its output              |
+| <kbd>Ctrl</kbd> + <kbd>E</kbd> | Toggle line numbers                                  |
 | <kbd>Ctrl</kbd> + <kbd>R</kbd> | Remove an entire line                                         |
 | <kbd>Ctrl</kbd> + <kbd>C</kbd> | Copies the entire line                                        |
 | <kbd>Ctrl</kbd> + <kbd>X</kbd> | Cuts the entire line                                          |
@@ -333,56 +169,6 @@ kibi follows the [XDG Base Directory Specification](https://specifications.freed
 ##### Windows
 
 Syntax highlighting configuration files can be located at `%APPDATA%\Kibi\syntax.d\<file_name>.ini`.
-
-## Comparison with `kilo`
-
-This project is inspired by [`kilo`](https://github.com/antirez/kilo), a text
-editor written by Salvatore Sanfilippo (antirez) in C, and
-[this tutorial](https://viewsourcecode.org/snaptoken/kilo/) (also in C).
-
-`kibi` provides additional features:
-
-- Support for UTF-8 characters
-- Compatibility with Windows
-- Command to jump to a given row/column
-- Handle window resize (UNIX only)
-- Parsing configuration files: global editor configuration with validation, language-specific
-  syntax highlighting configuration (38 languages and counting)
-- Display line numbers on the left of the screen; display file size in the status
-  bar
-- Syntax highlighting: multi-line strings
-- _Save as_ prompt when no file name has been provided
-- Command to duplicate the current row, to quickly move between words
-- Ability to execute an external command from the editor and paste its output
-- Support for end-of-options delimiter `--` (following [POSIX.1-2024 12. Utility
-  Conventions](https://pubs.opengroup.org/onlinepubs/9799919799/basedefs/V1_chap12.html))
-- Can be used as the editor for the _`sudoers`_ file via [`visudo`](https://www.man7.org/linux/man-pages/man8/visudo.8.html)
-- Guaranteed memory safety, thanks to Rust!
-- Bug fixes
-
-## Contributing
-
-Contributions of any kind are welcome! Make sure to check out the contributing guide:
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## Dependencies
-
-This project must remain tiny, so using advanced dependencies such as [`ncurses`](https://crates.io/crates/ncurses),
-[`toml`](https://crates.io/crates/toml) or
-[`ansi-escapes`](https://crates.io/crates/ansi-escapes) would be cheating.
-
-The following dependencies provide wrappers around system calls.
-
-- On UNIX systems (Linux, macOS):
-  - `libc`
-- On Windows:
-  - `winapi`
-  - `winapi-util`
-
-In addition, `unicode-width` is used to determine the displayed width of Unicode
-characters. Unfortunately, there is no way around it: the
-[unicode character width table](https://github.com/unicode-rs/unicode-width/blob/3033826f8bf05e82724140a981d5941e48fce393/src/tables.rs#L52)
-is 230 lines long.
 
 ## Why Kibi?
 
