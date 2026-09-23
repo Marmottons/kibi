@@ -9,6 +9,30 @@ All notable changes to this project will be documented in this file.
 _The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)._
 
+## [Unreleased]
+
+### Added
+
+- <kbd>Ctrl</kbd> + <kbd>U</kbd> to delete the text before the cursor (recoverable with
+  <kbd>Ctrl</kbd> + <kbd>Z</kbd>, not stored in the clipboard)
+- <kbd>Ctrl</kbd> + <kbd>K</kbd> to delete the text after the cursor (recoverable with
+  <kbd>Ctrl</kbd> + <kbd>Z</kbd>, not stored in the clipboard; no-op at the end of the line)
+- <kbd>Ctrl</kbd> + <kbd>Z</kbd> to undo the last modifying shortcut action (single level:
+  <kbd>Ctrl</kbd> + <kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd>/<kbd>U</kbd>/<kbd>D</kbd>/<kbd>R</kbd>/<kbd>/</kbd>)
+
+### Fixed
+
+- Unassigned <kbd>Ctrl</kbd> + key combinations no longer insert control characters
+  into the buffer (which could render as unexpected characters/colors)
+
+### Changed
+
+- <kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>X</kbd> / <kbd>Ctrl</kbd> + <kbd>V</kbd> now
+  copy / cut / paste the text after the cursor instead of whole lines; paste inserts the
+  copied text at the cursor position. When the cursor is at the end of the line,
+  <kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>X</kbd> act on the whole line
+- <kbd>Ctrl</kbd> + <kbd>X</kbd> no longer removes the entire line, use <kbd>Ctrl</kbd> + <kbd>R</kbd> for that
+
 ## [0.3.3] - 2026-01-01
 
 ### Added
@@ -229,6 +253,7 @@ kibi v0.1.1 is a small patch release that includes a minor fix to the
 
 Initial release
 
+[Unreleased]: https://github.com/ilai-deutel/kibi/compare/v0.3.3...HEAD
 [0.3.3]: https://github.com/ilai-deutel/kibi/releases/tag/v0.3.3
 [0.3.2]: https://github.com/ilai-deutel/kibi/releases/tag/v0.3.2
 [0.3.1]: https://github.com/ilai-deutel/kibi/releases/tag/v0.3.1

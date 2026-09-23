@@ -87,9 +87,12 @@ kibi --version    # Print version information and exit
 | <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate the current row                                     |
 | <kbd>Ctrl</kbd> + <kbd>E</kbd> | Toggle line numbers                                  |
 | <kbd>Ctrl</kbd> + <kbd>R</kbd> | Remove an entire line                                         |
-| <kbd>Ctrl</kbd> + <kbd>C</kbd> | Copies the entire line                                        |
-| <kbd>Ctrl</kbd> + <kbd>X</kbd> | Cuts the entire line                                          |
-| <kbd>Ctrl</kbd> + <kbd>V</kbd> | Will paste the copied line                                    |
+| <kbd>Ctrl</kbd> + <kbd>C</kbd> | Copies the text after the cursor, or the whole line if the cursor is at its end |
+| <kbd>Ctrl</kbd> + <kbd>X</kbd> | Cuts the text after the cursor, or the whole line if the cursor is at its end   |
+| <kbd>Ctrl</kbd> + <kbd>V</kbd> | Pastes the copied text at the cursor position                   |
+| <kbd>Ctrl</kbd> + <kbd>U</kbd> | Deletes the text before the cursor                              |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Deletes the text after the cursor                               |
+| <kbd>Ctrl</kbd> + <kbd>Z</kbd> | Undoes the last shortcut action (single level)                 |
 | <kbd>Ctrl</kbd> + <kbd>←</kbd> | Moves cursor to previous word                                 |
 | <kbd>Ctrl</kbd> + <kbd>→</kbd> | Moves cursor to next word                                     |
 | <kbd>Ctrl</kbd> + <kbd>/</kbd> | Comment or uncomment the current line                         |

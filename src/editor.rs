@@ -20,6 +20,9 @@ const GOTO: u8 = ctrl_key(b'G');
 const CUT: u8 = ctrl_key(b'X');
 const COPY: u8 = ctrl_key(b'C');
 const PASTE: u8 = ctrl_key(b'V');
+const DELETE_TO_START: u8 = ctrl_key(b'U');
+const DELETE_TO_END: u8 = ctrl_key(b'K');
+const UNDO: u8 = ctrl_key(b'Z');
 const DUPLICATE: u8 = ctrl_key(b'D');
 const TOGGLE_LINE_NUM: u8 = ctrl_key(b'E');
 const REMOVE_LINE: u8 = ctrl_key(b'R');
@@ -122,8 +125,10 @@ pub struct Editor {
     syntax: SyntaxConf,
     /// The number of bytes contained in `rows`. This excludes new lines.
     n_bytes: u64,
-    /// The copied buffer of a row
-    copied_row: Vec<u8>,
+    /// The internal clipboard, holding the last copied text fragment
+    clipboard: Vec<u8>,
+    /// State saved before the last modifying shortcut, for `Ctrl+Z`
+    undo_state: Option<(Vec<Vec<u8>>, CursorState, u64, bool)>,
     /// Whether to use ANSI color escape codes for rendering
     use_color: bool,
 }
@@ -386,6 +391,7 @@ impl Editor {
     }
 
     fn delete_current_row(&mut self) {
+        self.save_undo_state();
         if self.cursor.y < self.rows.len() {
             self.rows[self.cursor.y].chars.clear();
             self.cursor.x = 0;
@@ -395,33 +401,108 @@ impl Editor {
         }
     }
 
+    /// Save the buffer state so it can be restored by `undo_last_action`.
+    fn save_undo_state(&mut self) {
+        let rows = self.rows.iter().map(|row| row.chars.clone()).collect();
+        let state = (rows, self.cursor.clone(), self.n_bytes, self.dirty);
+        self.undo_state = Some(state);
+    }
+
+    /// Restore the buffer to the state saved before the last modifying shortcut.
+    /// Only one level of undo is kept.
+    fn undo_last_action(&mut self) {
+        let Some((rows, cursor, n_bytes, dirty)) = self.undo_state.take() else { return };
+        self.rows = rows.into_iter().map(Row::new).collect();
+        (self.cursor, self.n_bytes, self.dirty) = (cursor, n_bytes, dirty);
+        self.update_all_rows();
+        self.update_screen_cols();
+    }
+
+    /// Insert a copy of the current row below it, without using the clipboard.
     fn duplicate_current_row(&mut self) {
-        self.copy_current_row();
-        self.paste_current_row();
-    }
-
-    fn copy_current_row(&mut self) {
-        if let Some(row) = self.current_row() {
-            self.copied_row = row.chars.clone();
-        }
-    }
-
-    fn paste_current_row(&mut self) {
-        if self.copied_row.is_empty() {
-            return;
-        }
-        self.n_bytes += self.copied_row.len() as u64;
+        self.save_undo_state();
+        let Some(chars) = self.current_row().map(|row| row.chars.clone()) else { return };
+        self.n_bytes += chars.len() as u64;
         let y = (self.cursor.y + 1).min(self.rows.len());
-        self.rows.insert(y, Row::new(self.copied_row.clone()));
+        self.rows.insert(y, Row::new(chars));
         self.update_row(y, false);
         (self.cursor.y, self.dirty) = (y, true);
         self.update_screen_cols();
+    }
+
+    /// Copy the text after the cursor until the end of the row into the clipboard.
+    /// If the cursor is at the end of the row, copy the whole row.
+    fn copy_fragment(&mut self) {
+        if let Some(row) = self.current_row() {
+            let x = if self.cursor.x == row.chars.len() { 0 } else { self.cursor.x };
+            self.clipboard = row.chars[x..].to_vec();
+        }
+    }
+
+    /// Copy the text after the cursor into the clipboard, then remove it from the row.
+    /// If the cursor is at the end of the row, cut the whole row content.
+    fn cut_fragment(&mut self) {
+        self.save_undo_state();
+        let Some(row) = self.rows.get_mut(self.cursor.y) else { return };
+        let x = if self.cursor.x == row.chars.len() { 0 } else { self.cursor.x };
+        (self.clipboard, self.cursor.x) = (row.chars.split_off(x), x);
+        self.update_row(self.cursor.y, false);
+        self.n_bytes -= self.clipboard.len() as u64;
+        self.dirty = if self.is_empty() { self.file_name.is_some() } else { true };
+    }
+
+    /// Insert the clipboard content at the cursor position.
+    fn paste_fragment(&mut self) {
+        self.save_undo_state();
+        if self.clipboard.is_empty() {
+            return;
+        }
+        if let Some(row) = self.rows.get_mut(self.cursor.y) {
+            let x = self.cursor.x.min(row.chars.len());
+            row.chars.splice(x..x, self.clipboard.iter().copied());
+            self.cursor.x = x + self.clipboard.len();
+        } else {
+            self.rows.push(Row::new(self.clipboard.clone()));
+            self.update_screen_cols();
+            self.cursor.x = self.clipboard.len();
+        }
+        self.update_row(self.cursor.y, false);
+        self.n_bytes += self.clipboard.len() as u64;
+        self.dirty = true;
+    }
+
+    /// Remove the text before the cursor on the row. The removed text is not put
+    /// in the clipboard; recover it with `Ctrl+Z`.
+    fn delete_to_start(&mut self) {
+        if self.cursor.x == 0 {
+            return;
+        }
+        self.save_undo_state();
+        let Some(row) = self.rows.get_mut(self.cursor.y) else { return };
+        let n = row.chars.drain(..self.cursor.x).count();
+        self.update_row(self.cursor.y, false);
+        (self.cursor.x, self.n_bytes) = (0, self.n_bytes - n as u64);
+        self.dirty = if self.is_empty() { self.file_name.is_some() } else { true };
+    }
+
+    /// Remove the text after the cursor on the row. The removed text is not put
+    /// in the clipboard; recover it with `Ctrl+Z`. No-op at the end of the row.
+    fn delete_to_end(&mut self) {
+        if self.current_row().is_none_or(|row| self.cursor.x >= row.chars.len()) {
+            return;
+        }
+        self.save_undo_state();
+        let n = self.rows[self.cursor.y].chars.drain(self.cursor.x..).count();
+        self.update_row(self.cursor.y, false);
+        self.n_bytes -= n as u64;
+        self.dirty = if self.is_empty() { self.file_name.is_some() } else { true };
     }
 
     /// Toggle comment on the current line using the appropriate comment symbol
     /// from the syntax configuration. If the line is already commented,
     /// uncomment it. If not, add a comment symbol at the beginning.
     fn toggle_comment(&mut self) {
+        self.save_undo_state();
         // Get the first single-line comment start symbol from syntax config
         let Some(sym) = self.syntax.sl_comment_start.first() else { return };
         let Some(row) = self.rows.get_mut(self.cursor.y) else { return };
@@ -657,18 +738,21 @@ impl Editor {
                 prompt_mode = Some(PromptMode::Find(String::new(), self.cursor.clone(), None)),
             Key::Char(GOTO) => prompt_mode = Some(PromptMode::GoTo(String::new())),
             Key::Char(DUPLICATE) => self.duplicate_current_row(),
-            Key::Char(CUT) => {
-                self.copy_current_row();
-                self.delete_current_row();
-            }
-            Key::Char(COPY) => self.copy_current_row(),
-            Key::Char(PASTE) => self.paste_current_row(),
+            Key::Char(CUT) => self.cut_fragment(),
+            Key::Char(COPY) => self.copy_fragment(),
+            Key::Char(PASTE) => self.paste_fragment(),
+            Key::Char(DELETE_TO_START) => self.delete_to_start(),
+            Key::Char(DELETE_TO_END) => self.delete_to_end(),
+            Key::Char(UNDO) => self.undo_last_action(),
             Key::Char(TOGGLE_COMMENT) => self.toggle_comment(),
             Key::Char(TOGGLE_LINE_NUM) => {
                 self.config.show_line_num = !self.config.show_line_num;
                 self.update_screen_cols();
             }
-            Key::Char(c) => self.insert_byte(*c),
+            // Insert printable characters and Tab. Unassigned Ctrl+key combinations
+            // yield control bytes, which are ignored instead of being inserted.
+            Key::Char(c) if *c >= b' ' || *c == b'\t' => self.insert_byte(*c),
+            Key::Char(_) => (),
         }
         self.quit_times = if reset_quit_times { 0 } else { self.quit_times + 1 };
         (false, prompt_mode)
@@ -1501,6 +1585,216 @@ mod tests {
         assert_eq!(editor.rows[0].chars, b"def hello():");
 
         // Verify cursor position is valid
-        assert!(editor.cursor.x <= editor.rows[0].chars.len());
+        assert!(editor.cursor.x <= editor.rows[0].chars.len(), "cursor stays within the row");
+    }
+
+    /// Build an editor containing `buffer`, with the cursor at `cursor`.
+    fn editor_with(buffer: &[u8], cursor: (usize, usize)) -> Editor {
+        let mut editor = Editor::default();
+        for &b in buffer {
+            if b == b'\n' {
+                editor.insert_new_line();
+            } else {
+                editor.insert_byte(b);
+            }
+        }
+        (editor.cursor.x, editor.cursor.y) = cursor;
+        editor.dirty = false;
+        editor
+    }
+
+    #[test]
+    fn copy_fragment_copies_text_after_cursor() {
+        let mut editor = editor_with(b"Hello world", (6, 0));
+
+        editor.process_keypress(&Key::Char(COPY));
+
+        assert_eq!(editor.clipboard, b"world", "clipboard holds text after the cursor");
+        assert_row_chars_equal(&editor, &[b"Hello world"]);
+        assert!(!editor.dirty, "copy does not mark the buffer as modified");
+    }
+
+    #[test]
+    fn cut_fragment_cuts_text_after_cursor() {
+        let mut editor = editor_with(b"Hello world", (6, 0));
+
+        editor.process_keypress(&Key::Char(CUT));
+
+        assert_eq!(editor.clipboard, b"world", "clipboard holds text after the cursor");
+        assert_row_chars_equal(&editor, &[b"Hello "]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (6, 0), "cursor does not move");
+        assert_eq!(editor.n_bytes, 6, "n_bytes reflects the removed bytes");
+        assert!(editor.dirty, "cut marks the buffer as modified");
+    }
+
+    #[test]
+    fn paste_fragment_inserts_at_cursor() {
+        let mut editor = editor_with(b"Hello world", (6, 0));
+        editor.process_keypress(&Key::Char(COPY));
+        (editor.cursor.x, editor.cursor.y) = (0, 0);
+
+        editor.process_keypress(&Key::Char(PASTE));
+
+        assert_row_chars_equal(&editor, &[b"worldHello world"]);
+        assert_eq!(editor.cursor.x, 5, "cursor moves to the end of the pasted text");
+        assert_eq!(editor.n_bytes, 16, "n_bytes includes the pasted bytes");
+        assert!(editor.dirty, "paste marks the buffer as modified");
+    }
+
+    #[test]
+    fn paste_fragment_on_empty_buffer() {
+        let mut editor = Editor { clipboard: b"abc".to_vec(), ..Default::default() };
+
+        editor.paste_fragment();
+
+        assert_row_chars_equal(&editor, &[b"abc"]);
+        assert_eq!(editor.cursor.x, 3, "cursor moves to the end of the pasted text");
+        assert_eq!(editor.n_bytes, 3, "n_bytes includes the pasted bytes");
+    }
+
+    #[test]
+    fn paste_empty_clipboard_is_noop() {
+        let mut editor = editor_with(b"Hello", (2, 0));
+
+        editor.paste_fragment();
+
+        assert_row_chars_equal(&editor, &[b"Hello"]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (2, 0), "cursor does not move");
+        assert!(!editor.dirty, "failed paste does not mark the buffer as modified");
+    }
+
+    #[test]
+    fn copy_and_cut_at_row_end_behave_as_at_row_start() {
+        let mut editor = editor_with(b"Hello", (5, 0));
+
+        editor.process_keypress(&Key::Char(COPY));
+        assert_eq!(editor.clipboard, b"Hello", "copy at the end of the row copies the whole row");
+
+        editor.process_keypress(&Key::Char(CUT));
+        assert_row_chars_equal(&editor, &[b""]);
+        assert_eq!(editor.clipboard, b"Hello", "cut at the end of the row cuts the whole row");
+        assert_eq!(editor.cursor.x, 0, "cursor moves to the start of the row");
+        assert_eq!(editor.n_bytes, 0, "n_bytes reflects the removed bytes");
+    }
+
+    #[test]
+    fn delete_to_end_removes_text_after_cursor() {
+        let mut editor = editor_with(b"Hello world", (6, 0));
+        editor.clipboard = b"keep".to_vec();
+
+        editor.process_keypress(&Key::Char(DELETE_TO_END));
+
+        assert_row_chars_equal(&editor, &[b"Hello "]);
+        assert_eq!(editor.clipboard, b"keep", "clipboard is not modified");
+        assert_eq!(editor.cursor.x, 6, "cursor does not move");
+        assert_eq!(editor.n_bytes, 6, "n_bytes reflects the removed bytes");
+        assert!(editor.dirty, "deletion marks the buffer as modified");
+
+        // Cursor at the end of the row: no-op, the buffer is unchanged
+        editor.process_keypress(&Key::Char(DELETE_TO_END));
+        assert_row_chars_equal(&editor, &[b"Hello "]);
+        assert!(editor.dirty, "no-op does not change the dirty flag");
+
+        // The deleted text is recoverable with undo
+        editor.process_keypress(&Key::Char(UNDO));
+        assert_row_chars_equal(&editor, &[b"Hello world"]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (6, 0), "cursor is restored");
+        assert_eq!(editor.clipboard, b"keep", "undo does not modify the clipboard");
+    }
+
+    #[test]
+    fn undo_restores_state_before_last_shortcut() {
+        let mut editor = editor_with(b"Hello world", (6, 0));
+
+        editor.process_keypress(&Key::Char(CUT));
+        assert_row_chars_equal(&editor, &[b"Hello "]);
+
+        editor.process_keypress(&Key::Char(UNDO));
+        assert_row_chars_equal(&editor, &[b"Hello world"]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (6, 0), "cursor is restored");
+        assert_eq!(editor.n_bytes, 11, "n_bytes is restored");
+        assert!(!editor.dirty, "dirty flag is restored");
+
+        // Undo only keeps one level: a second Ctrl+Z does nothing
+        editor.process_keypress(&Key::Char(CUT));
+        editor.process_keypress(&Key::Char(UNDO));
+        editor.process_keypress(&Key::Char(UNDO));
+        assert_row_chars_equal(&editor, &[b"Hello world"]);
+        assert_eq!(editor.n_bytes, 11, "single-level undo: second Ctrl+Z did nothing");
+    }
+
+    #[test]
+    fn undo_without_saved_state_is_noop() {
+        let mut editor = editor_with(b"Hello", (2, 0));
+
+        editor.process_keypress(&Key::Char(UNDO));
+
+        assert_row_chars_equal(&editor, &[b"Hello"]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (2, 0), "cursor does not move");
+        assert!(!editor.dirty, "failed undo does not mark the buffer as modified");
+    }
+
+    #[test]
+    fn delete_to_start_removes_text_before_cursor() {
+        let mut editor = editor_with(b"Hello world", (6, 0));
+        editor.clipboard = b"keep".to_vec();
+
+        editor.process_keypress(&Key::Char(DELETE_TO_START));
+
+        assert_row_chars_equal(&editor, &[b"world"]);
+        assert_eq!(editor.clipboard, b"keep", "clipboard is not modified");
+        assert_eq!(editor.cursor.x, 0, "cursor moves to the start of the row");
+        assert_eq!(editor.n_bytes, 5, "n_bytes reflects the removed bytes");
+        assert!(editor.dirty, "deletion marks the buffer as modified");
+
+        // The deleted text is recoverable with undo
+        editor.process_keypress(&Key::Char(UNDO));
+        assert_row_chars_equal(&editor, &[b"Hello world"]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (6, 0), "cursor is restored");
+        assert_eq!(editor.clipboard, b"keep", "undo does not modify the clipboard");
+    }
+
+    #[test]
+    fn delete_to_start_at_row_start_is_noop() {
+        let mut editor = editor_with(b"Hello", (0, 0));
+        editor.clipboard = b"keep".to_vec();
+        editor.process_keypress(&Key::Char(DELETE_TO_START));
+
+        assert_row_chars_equal(&editor, &[b"Hello"]);
+        assert_eq!(editor.clipboard, b"keep", "clipboard is unchanged");
+        assert!(!editor.dirty, "failed delete does not mark the buffer as modified");
+    }
+
+    #[test]
+    fn unassigned_control_keys_are_ignored() {
+        let mut editor = editor_with(b"Hello", (2, 0));
+
+        // Ctrl+A, Ctrl+B, Ctrl+T, Ctrl+Y are not assigned: no control byte is inserted
+        for c in [0x01, 0x02, 0x14, 0x19] {
+            editor.process_keypress(&Key::Char(c));
+        }
+
+        assert_row_chars_equal(&editor, &[b"Hello"]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (2, 0), "cursor does not move");
+        assert!(!editor.dirty, "buffer is not modified");
+
+        // Tab is still inserted, at the cursor position (x = 2)
+        editor.process_keypress(&Key::Char(b'\t'));
+        assert_row_chars_equal(&editor, &[b"He\tllo"]);
+        assert_eq!(editor.cursor.x, 3, "cursor moved past the inserted tab");
+    }
+
+    #[test]
+    fn duplicate_row_copies_whole_row_and_keeps_clipboard() {
+        let mut editor = editor_with(b"Hello world", (6, 0));
+        editor.clipboard = b"xyz".to_vec();
+
+        editor.process_keypress(&Key::Char(DUPLICATE));
+
+        assert_row_chars_equal(&editor, &[b"Hello world", b"Hello world"]);
+        assert_eq!((editor.cursor.x, editor.cursor.y), (6, 1), "cursor moves to the new row");
+        assert_eq!(editor.clipboard, b"xyz", "duplicate does not use the clipboard");
+        assert_eq!(editor.n_bytes, 22, "n_bytes includes the duplicated row");
+        assert!(editor.dirty, "duplicate marks the buffer as modified");
     }
 }
