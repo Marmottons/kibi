@@ -8,20 +8,15 @@ SPDX-License-Identifier: MIT or Apache-2.0
     <img src="./assets/kibi.svg" alt="Logo of Kibi. A dark gray square with rounded corners contains a large, light-orange, backward-pointing chevron and a bright green, vertical rectangle. To the left of the chevron is a column of ten light-orange, horizontal rectangles. These ten rectangles function as a 10-bit binary counter, with the bottom bar being the least significant bit and the top the most significant. The bars blink in a sequence that counts from 0 to 1023 in binary." width="256" />
 </div>
 
-# Kibi: A text editor in ≤1024 lines of code, written in Rust
-
-[![Kibi in action: creating and editing a file, with syntax highlighting and search feature](assets/recording.svg)](https://asciinema.org/a/KY7tKPlxHXqRdJiv5KaTJbPj5)
+# Kibi: A small text editor, written in Rust
 
 A configurable text editor with UTF-8 support, incremental search, syntax
-highlighting, line numbers and more, written in less than 1024
-lines[^1] of Rust with minimal dependencies.
-
-[^1]: Counted per platform, excluding tests and Clippy directives, see [`count_loc`](./xtask/src/count_loc.rs)
+highlighting, line numbers and more, written in Rust with minimal dependencies.
 
 Kibi is compatible with Linux, macOS, Windows
-10[^2], and WASI.
+10[^1], and WASI.
 
-[^2]: Kibi requires the terminal to support ANSI escape sequences. Windows 10 version 1703 ([Creators Update](https://devblogs.microsoft.com/commandline/windows-10-creators-update-whats-new-in-bashwsl-windows-console), April 2017) and above are supported.
+[^1]: Kibi requires the terminal to support ANSI escape sequences. Windows 10 version 1703 ([Creators Update](https://devblogs.microsoft.com/commandline/windows-10-creators-update-whats-new-in-bashwsl-windows-console), April 2017) and above are supported.
 
 This project is inspired by [`kilo`](https://github.com/antirez/kilo), a text
 editor written in C.
@@ -34,8 +29,6 @@ editor written in C.
   - [Configuration](#configuration)
     - [Global configuration](#global-configuration)
     - [Syntax highlighting](#syntax-highlighting)
-- [Why Kibi?](#why-kibi)
-- [Contributors](#contributors)
 - [License](#license)
 
 ## Installation
@@ -50,23 +43,26 @@ cargo build --release
 
 The binary will be at `target/release/kibi`.
 
-Optionally, install it system-wide:
+Install the binary **and** the syntax highlighting files (`syntax.d`) with:
 
 ```bash
-cargo install --path .
+./install.sh
 ```
 
-Syntax highlighting configuration files are available in the
-[`syntax.d`](syntax.d) directory. They need to be placed in one of the
-configuration directories mentioned in the
+This runs `cargo install --path . --locked` and copies the files from
+[`syntax.d`](syntax.d) to `$XDG_DATA_HOME/kibi/syntax.d`
+(`~/.local/share/kibi/syntax.d` by default). Run it again after each update.
+
+The files in [`syntax.d`](syntax.d) include hand-written syntaxes and syntaxes
+generated from [bat](https://github.com/sharkdp/bat)'s (see
+[`scripts/import_bat_syntaxes.py`](scripts/import_bat_syntaxes.py)), which start
+with a `# Generated from the bat syntaxes` line. The keyword colors of the
+hand-written files are also taken from bat. Kibi's highlighting stays much
+simpler than bat's, so colors only match bat's on the most common elements.
+
+Syntax highlighting configuration files can also be placed manually in one of
+the directories mentioned in the
 [Configuration/Syntax Highlighting](#syntax-highlighting) section.
-
-For instance:
-
-```bash
-mkdir -p ~/.local/share/kibi/
-ln -sr ./syntax.d ~/.local/share/kibi/syntax.d
-```
 
 ## Usage
 
@@ -83,7 +79,7 @@ kibi --version    # Print version information and exit
 | <kbd>Ctrl</kbd> + <kbd>F</kbd> | Incremental search; use arrows to navigate                    |
 | <kbd>Ctrl</kbd> + <kbd>S</kbd> | Save the buffer to the current file, or specify the file path |
 | <kbd>Ctrl</kbd> + <kbd>G</kbd> | Go to `<line number>[:<column number>]` position              |
-| <kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit                                                          |
+| <kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit; with unsaved changes, confirm with <kbd>y</kbd> or <kbd>Ctrl</kbd> + <kbd>Q</kbd> again |
 | <kbd>Ctrl</kbd> + <kbd>D</kbd> | Duplicate the current row                                     |
 | <kbd>Ctrl</kbd> + <kbd>E</kbd> | Toggle line numbers                                  |
 | <kbd>Ctrl</kbd> + <kbd>R</kbd> | Remove an entire line                                         |
@@ -106,9 +102,6 @@ Kibi can be configured using a configuration file. It must follow this format:
 ```ini
 # The size of a tab. Must be > 0.
 tab_stop=4
-# The number of confirmations needed before quitting, when changes have been
-# made since the file was last changed.
-quit_times=2
 # The duration for which messages are shown in the status bar, in seconds.
 message_duration=3
 # Whether to show line numbers.
@@ -138,8 +131,8 @@ A configuration file can be located at `%APPDATA%\Kibi\config.ini`.
 Syntax highlighting can be configured using INI files which follow this format:
 
 ```ini
-### /usr/share/kibi/syntax.d/rust.ini ###
-# Kibi syntax highlighting configuration for Rust
+### ~/.local/share/kibi/syntax.d/rust.ini ###
+# Kibi syntax highlighting configuration for Rust (shortened)
 
 name=Rust
 extensions=rs
@@ -147,13 +140,55 @@ highlight_numbers=true
 singleline_string_quotes="
 singleline_comment_start=//
 multiline_comment_delims=/*, */
-; In Rust, the multi-line string delimiter is the same as the single-line string
-; delimiter
+; In Rust, the multi-line string delimiter is the same as the single-line string delimiter
 multiline_string_delim="
-; https://doc.rust-lang.org/book/appendix-01-keywords.html
-keywords_1=abstract, as, async, await, become, box, break, const, continue, crate, do, dyn, else, enum, extern, false, final, fn, for, if, impl, in, let, loop, macro, match, mod, move, mut, override, priv, pub, ref, return, self, Self, static, struct, super, trait, true, try, type, typeof, unsafe, unsized, use, virtual, where, while, yield
-keywords_2=i8, i16, i32, i64, i128, isize, u8, u16, u32, u36, u128, usize, f32, f64, bool, char, str
+highlight_function_calls=true
+plain_path_calls=true
+highlight_operators=true
+highlight_punctuation=true
+attributes=true
+type_definition_keywords=enum, impl, struct, trait, type
+function_definition_keywords=fn
+highlight_parameters=true
+keywords_1=async, await, break, const, continue, else, enum, fn, for, if, impl, let, match, mut, pub, return, struct, use, while
+builtins=false, true
+types=Box, Option, Result, Some, None, Ok, Err, String, Vec
+operators=as, in
 ```
+
+Colors follow the Catppuccin Mocha theme, as used by [bat](https://github.com/sharkdp/bat)
+(24-bit colors). Besides the keys above, these keys are supported:
+
+| Key | Effect |
+|-----|--------|
+| `keywords_1` | Keywords (mauve) |
+| `keywords_2` | Constants (peach) |
+| `builtins` | Built-ins, e.g. `true` in Rust (red) |
+| `types` | Types (yellow) |
+| `functions` | Functions and commands (blue) |
+| `operators` | Word operators (teal) |
+| `highlight_function_calls` | `foo(` is highlighted as a function |
+| `plain_path_calls` | ...except after `::`, e.g. `Vec::new(` |
+| `plain_capitalized_calls` | ...except for `Capitalized` names, e.g. `Some(` |
+| `highlight_operators` | `+`, `=`, `.`, `::`... are highlighted as operators |
+| `highlight_punctuation` | `(`, `;`, `,`... are highlighted as punctuation |
+| `highlight_capitalized` | `Capitalized` words are highlighted as types |
+| `highlight_commands` | The first word of a shell command is highlighted as a function |
+| `type_definition_keywords` | The word after one of these keywords (e.g. `struct`) is a type |
+| `function_definition_keywords` | The word after one of these keywords (e.g. `fn`) is a function |
+| `highlight_parameters` | Parameters of function definitions, e.g. `a` in `def f(a)` (maroon) |
+| `highlight_variables` | `$name` variables, also in double-quoted strings |
+| `highlight_options` | Command options, e.g. `-l` or `--all` |
+| `negative_numbers` | `-1` is a number |
+| `docstrings` | Multi-line strings that start a line are comments |
+| `decorators` | `@name` at the start of a line is a decorator |
+| `attributes` | `#[...]` at the start of a line is an attribute |
+| `keys`, `key_separators`, `key_separator` | Keys of configuration files, e.g. `keys=functions` and `key_separators=:` for `name: value` |
+| `unquoted_values` | Unquoted values and list items are strings, e.g. in YAML |
+| `sections` | Highlight type of section names, e.g. `[package]` in TOML |
+| `highlight_markdown` | Markdown headings, lists, quotes, tables, emphasis, links and images; code blocks use the syntax of their language (e.g. ```` ```rust ````) |
+| `highlight_tags` | HTML/XML tags, attributes and entities |
+| `highlight_css` / `highlight_units` | CSS selectors and at-rules / units, e.g. `px` |
 
 The location of these files is described below.
 
@@ -172,86 +207,6 @@ kibi follows the [XDG Base Directory Specification](https://specifications.freed
 ##### Windows
 
 Syntax highlighting configuration files can be located at `%APPDATA%\Kibi\syntax.d\<file_name>.ini`.
-
-## Contributors
-
-This project follows the [all-contributors](https://allcontributors.org/) specification
-([emoji key](https://allcontributors.org/docs/en/emoji-key)). Contributions of
-any kind welcome!
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ilai-deutel"><img src="https://avatars0.githubusercontent.com/u/10098207?v=4" width="100px;" alt=""/><br /><sub><b>Ilaï Deutel</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=ilai-deutel" title="Code">💻</a> <a href="#ideas-ilai-deutel" title="Ideas, Planning, & Feedback">🤔</a> <a href="#infra-ilai-deutel" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#platform-ilai-deutel" title="Packaging/porting to new platform">📦</a> <a href="#syntax-highlighting-ilai-deutel" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/codingonHP"><img src="https://avatars3.githubusercontent.com/u/7105293?v=4" width="100px;" alt=""/><br /><sub><b>Vishal Anand</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/issues?q=author%3AcodingonHP" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/gsbhasin123"><img src="https://avatars2.githubusercontent.com/u/48339289?v=4" width="100px;" alt=""/><br /><sub><b>Gurjus Bhasin</b></sub></a><br /><a href="#ideas-gsbhasin123" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ldang0"><img src="https://avatars1.githubusercontent.com/u/1281722?v=4" width="100px;" alt=""/><br /><sub><b>Libin Dang</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=ldang0" title="Code">💻</a> <a href="https://github.com/ilai-deutel/kibi/issues?q=author%3Aldang0" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/andradei"><img src="https://avatars0.githubusercontent.com/u/2653546?v=4" width="100px;" alt=""/><br /><sub><b>Isaac Andrade</b></sub></a><br /><a href="#ideas-andradei" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/frjol"><img src="https://avatars2.githubusercontent.com/u/4422813?v=4" width="100px;" alt=""/><br /><sub><b>frjol</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/issues?q=author%3Afrjol" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/tim77"><img src="https://avatars0.githubusercontent.com/u/5614476?v=4" width="100px;" alt=""/><br /><sub><b>Artem Polishchuk</b></sub></a><br /><a href="#platform-tim77" title="Packaging/porting to new platform">📦</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/malbarbo"><img src="https://avatars3.githubusercontent.com/u/1678126?v=4" width="100px;" alt=""/><br /><sub><b>Marco A L Barbosa</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=malbarbo" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/voidpin"><img src="https://avatars3.githubusercontent.com/u/35956139?v=4" width="100px;" alt=""/><br /><sub><b>pin</b></sub></a><br /><a href="#platform-voidpin" title="Packaging/porting to new platform">📦</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Uniminin"><img src="https://avatars3.githubusercontent.com/u/42061747?v=4" width="100px;" alt=""/><br /><sub><b>Uniminin</b></sub></a><br /><a href="#syntax-highlighting-Uniminin" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Woomy4680-exe"><img src="https://avatars.githubusercontent.com/u/57042741?v=4" width="100px;" alt=""/><br /><sub><b>Woomy4680-exe</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/issues?q=author%3AWoomy4680-exe" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/quadroli"><img src="https://avatars.githubusercontent.com/u/58091631?v=4" width="100px;" alt=""/><br /><sub><b>quadroli</b></sub></a><br /><a href="#syntax-highlighting-quadroli" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/m0lese"><img src="https://avatars.githubusercontent.com/u/86180257?v=4" width="100px;" alt=""/><br /><sub><b>molese</b></sub></a><br /><a href="#syntax-highlighting-m0lese" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/imreyesjorge"><img src="https://avatars.githubusercontent.com/u/40706868?v=4" width="100px;" alt=""/><br /><sub><b>Jorge Reyes</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=imreyesjorge" title="Code">💻</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/gVirtu"><img src="https://avatars.githubusercontent.com/u/15658199?v=4" width="100px;" alt=""/><br /><sub><b>Giancarlo França</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=gVirtu" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ilmanzo"><img src="https://avatars.githubusercontent.com/u/1872816?v=4" width="100px;" alt=""/><br /><sub><b>Andrea Manzini</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=ilmanzo" title="Code">💻</a> <a href="https://github.com/ilai-deutel/kibi/commits?author=ilmanzo" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Arkaeriit"><img src="https://avatars.githubusercontent.com/u/47985708?v=4" width="100px;" alt=""/><br /><sub><b>Maxime Bouillot</b></sub></a><br /><a href="#syntax-highlighting-Arkaeriit" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/john-sharratt"><img src="https://avatars.githubusercontent.com/u/17711537?v=4" width="100px;" alt=""/><br /><sub><b>Johnathan Sharratt</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=john-sharratt" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/No-one-important"><img src="https://avatars.githubusercontent.com/u/72458263?v=4" width="100px;" alt=""/><br /><sub><b>No-one-important</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=No-one-important" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/RobertGrancsa"><img src="https://avatars.githubusercontent.com/u/22158239?v=4" width="100px;" alt=""/><br /><sub><b>Robert Grancsa</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=RobertGrancsa" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sogreatandpowerfull"><img src="https://avatars.githubusercontent.com/u/114095654?v=4" width="100px;" alt=""/><br /><sub><b>SoGreatAndPowerful</b></sub></a><br /><a href="#syntax-highlighting-sogreatandpowerfull" title="Contributing to syntax highlighting configuration files">💠</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/carol-mb"><img src="https://avatars.githubusercontent.com/u/117681554?v=4" width="100px;" alt=""/><br /><sub><b>Mihai-Carol Bazga</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=carol-mb" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/NickGeek"><img src="https://avatars.githubusercontent.com/u/3462055?v=4" width="100px;" alt=""/><br /><sub><b>Nick Webster</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=NickGeek" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/hezhizhen"><img src="https://avatars.githubusercontent.com/u/7611700?v=4" width="100px;" alt=""/><br /><sub><b>Zhizhen He</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=hezhizhen" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/CosminGGeorgescu"><img src="https://avatars.githubusercontent.com/u/95082750?v=4" width="100px;" alt=""/><br /><sub><b>CosminGGeorgescu</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=CosminGGeorgescu" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/TanvirOnGH"><img src="https://avatars.githubusercontent.com/u/138336161?v=4" width="100px;" alt=""/><br /><sub><b>Tanvir</b></sub></a><br /><a href="#syntax-highlighting-TanvirOnGH" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/BogdanPaul15"><img src="https://avatars.githubusercontent.com/u/62438221?v=4" width="100px;" alt=""/><br /><sub><b>Prisacaru Bogdan-Paul</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=BogdanPaul15" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/auzkok"><img src="https://avatars.githubusercontent.com/u/35302680?v=4" width="100px;" alt=""/><br /><sub><b>auzkok</b></sub></a><br /><a href="#syntax-highlighting-auzkok" title="Contributing to syntax highlighting configuration files">💠</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/razvanrus2003"><img src="https://avatars.githubusercontent.com/u/69893593?v=4" width="100px;" alt=""/><br /><sub><b>Razvan Rus</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=razvanrus2003" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Jan9103"><img src="https://avatars.githubusercontent.com/u/55753387?v=4" width="100px;" alt=""/><br /><sub><b>Jan9103</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=Jan9103" title="Code">💻</a> <a href="#syntax-highlighting-Jan9103" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/joshka"><img src="https://avatars.githubusercontent.com/u/381361?v=4" width="100px;" alt=""/><br /><sub><b>Josh McKinney</b></sub></a><br /><a href="#infra-joshka" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/ilai-deutel/kibi/commits?author=joshka" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/zamazan4ik"><img src="https://avatars.githubusercontent.com/u/7355383?v=4" width="100px;" alt=""/><br /><sub><b>Alexander Zaitsev</b></sub></a><br /><a href="#infra-zamazan4ik" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/BanuAdrian"><img src="https://avatars.githubusercontent.com/u/66678108?v=4" width="100px;" alt=""/><br /><sub><b>Adrian Banu</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=BanuAdrian" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/vanillajonathan"><img src="https://avatars.githubusercontent.com/u/10222521?v=4" width="100px;" alt=""/><br /><sub><b>Jonathan</b></sub></a><br /><a href="#syntax-highlighting-vanillajonathan" title="Contributing to syntax highlighting configuration files">💠</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/lythd"><img src="https://avatars.githubusercontent.com/u/22566088?v=4" width="100px;" alt=""/><br /><sub><b>ly</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=lythd" title="Code">💻</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/kianmeng"><img src="https://avatars.githubusercontent.com/u/134518?v=4" width="100px;" alt=""/><br /><sub><b>Kian-Meng Ang</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=kianmeng" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/iamdhakrey"><img src="https://avatars.githubusercontent.com/u/35266081?v=4" width="100px;" alt=""/><br /><sub><b>Hrithik Dhakrey</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=iamdhakrey" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/kenderipa"><img src="https://avatars.githubusercontent.com/u/52325831?v=4" width="100px;" alt=""/><br /><sub><b>kenderipa</b></sub></a><br /><a href="#ideas-kenderipa" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/ilai-deutel/kibi/issues?q=author%3Akenderipa" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ahaoboy"><img src="https://avatars.githubusercontent.com/u/19884146?v=4" width="100px;" alt=""/><br /><sub><b>阿豪</b></sub></a><br /><a href="#infra-ahaoboy" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/luizvbo"><img src="https://avatars.githubusercontent.com/u/15856439?v=4" width="100px;" alt=""/><br /><sub><b>Luiz Otavio Vilas Boas Oliveira</b></sub></a><br /><a href="#infra-luizvbo" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mihai1923"><img src="https://avatars.githubusercontent.com/u/40871834?v=4" width="100px;" alt=""/><br /><sub><b>Mihai-Laurențiu Țucă</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=mihai1923" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/cosmincalinov"><img src="https://avatars.githubusercontent.com/u/137818916?v=4" width="100px;" alt=""/><br /><sub><b>Cosmin</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=cosmincalinov" title="Tests">⚠️</a></td>
-    </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/CristianPreda1609"><img src="https://avatars.githubusercontent.com/u/120663023?v=4" width="100px;" alt=""/><br /><sub><b>CristianPreda1609</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=CristianPreda1609" title="Tests">⚠️</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Cristian-Andrei-Pomenea"><img src="https://avatars.githubusercontent.com/u/189586799?v=4" width="100px;" alt=""/><br /><sub><b>Pomenea Cristian-Andrei</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=Cristian-Andrei-Pomenea" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/CalinCodes"><img src="https://avatars.githubusercontent.com/u/168958070?v=4" width="100px;" alt=""/><br /><sub><b>Călin Fota</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=CalinCodes" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/stefanpeiculeasa"><img src="https://avatars.githubusercontent.com/u/176714001?v=4" width="100px;" alt=""/><br /><sub><b>Peiculeasa Sergiu-Ștefan</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=stefanpeiculeasa" title="Code">💻</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/rtczza"><img src="https://avatars.githubusercontent.com/u/41325712?v=4" width="100px;" alt=""/><br /><sub><b>ken</b></sub></a><br /><a href="https://github.com/ilai-deutel/kibi/commits?author=rtczza" title="Code">💻</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## License
 

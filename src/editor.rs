@@ -89,7 +89,8 @@ impl CursorState {
 /// editor.
 #[derive(Default)]
 pub struct Editor {
-    /// If not `None`, the current prompt mode (`Save`, `Find`, or `GoTo`).
+    /// If not `None`, the current prompt mode (`Save`, `Find`, `GoTo`, or
+    /// `ConfirmQuit`).
     /// If `None`, we are in regular edition mode.
     prompt_mode: Option<PromptMode>,
     /// The current state of the cursor.
@@ -112,9 +113,9 @@ pub struct Editor {
     dirty: bool,
     /// The configuration for the editor.
     config: Config,
-    /// The number of consecutive times the user has tried to quit without
-    /// saving. After `config.quit_times`, the program will exit.
-    quit_times: usize,
+    /// Whether the user has confirmed that they want to quit, despite unsaved
+    /// changes.
+    quit_confirmed: bool,
     /// The file name. If None, the user will be prompted for a file name the
     /// first time they try to save.
     // TODO: It may be better to store a PathBuf instead
@@ -610,8 +611,8 @@ impl Editor {
         if self.ln_pad >= 2 {
             // \u{2502}: pipe "│"
             let s = format!("{:>1$} \u{2502}", val, self.ln_pad - 2);
-            // \x1b[38;5;240m: Dark grey color
-            push_colored(buffer, "\x1b[38;5;240m", &s, self.use_color);
+            // Gutter color of the Catppuccin Mocha theme (#7f849c), as in bat
+            push_colored(buffer, "\x1b[38;2;127;132;156m", &s, self.use_color);
         }
     }
 
@@ -696,8 +697,6 @@ impl Editor {
     /// whether the program should exit, and optionally the prompt mode to
     /// switch to.
     fn process_keypress(&mut self, key: &Key) -> (bool, Option<PromptMode>) {
-        // This won't be mutated, unless key is Key::Character(EXIT)
-        let mut reset_quit_times = true;
         let mut prompt_mode = None;
 
         match key {
@@ -722,12 +721,10 @@ impl Editor {
             }
             Key::Escape | Key::Char(REFRESH_SCREEN) => (),
             Key::Char(EXIT) => {
-                if !self.dirty || self.quit_times + 1 >= self.config.quit_times {
+                if !self.dirty {
                     return (true, None);
                 }
-                let r = self.config.quit_times - self.quit_times - 1;
-                set_status!(self, "Press Ctrl+Q {0} more time{1:.2$} to quit.", r, "s", r - 1);
-                reset_quit_times = false;
+                prompt_mode = Some(PromptMode::ConfirmQuit);
             }
             Key::Char(SAVE) if let Some(file_name) = self.file_name.take() => {
                 self.save_and_handle_io_errors(&file_name);
@@ -754,7 +751,6 @@ impl Editor {
             Key::Char(c) if *c >= b' ' || *c == b'\t' => self.insert_byte(*c),
             Key::Char(_) => (),
         }
-        self.quit_times = if reset_quit_times { 0 } else { self.quit_times + 1 };
         (false, prompt_mode)
     }
 
@@ -814,6 +810,9 @@ impl Editor {
                     (false, prompt_mode) => prompt_mode,
                 },
                 Some(prompt_mode) => prompt_mode.process_keypress(self, &key),
+            };
+            if self.quit_confirmed {
+                return Ok(());
             }
         }
     }
@@ -859,6 +858,8 @@ enum PromptMode {
     Find(String, CursorState, Option<usize>),
     /// GoTo(prompt buffer)
     GoTo(String),
+    /// Ask for confirmation before quitting with unsaved changes
+    ConfirmQuit,
 }
 
 // TODO: Use trait with mode_status_msg and process_keypress, implement the
@@ -870,6 +871,7 @@ impl PromptMode {
             Self::Save(buffer) => format!("Save as: {buffer}"),
             Self::Find(buffer, ..) => format!("Search (Use ESC/Arrows/Enter): {buffer}"),
             Self::GoTo(buffer) => format!("Enter line number[:column number]: {buffer}"),
+            Self::ConfirmQuit => "Unsaved changes! Quit without saving? (y/n, Ctrl+Q again to confirm)".into(),
         }
     }
 
@@ -902,6 +904,15 @@ impl PromptMode {
                     PromptState::Cancelled => ed.cursor = saved_cursor,
                     // Cursor has already been moved, do nothing
                     PromptState::Completed(_) => (),
+                }
+            }
+            Self::ConfirmQuit => {
+                #[expect(clippy::wildcard_enum_match_arm)]
+                match key {
+                    Key::Char(b'y' | b'Y' | EXIT) => ed.quit_confirmed = true,
+                    Key::Char(b'n' | b'N') | Key::Escape => set_status!(ed, "Quit aborted"),
+                    // Any other key: keep asking
+                    _ => return Some(Self::ConfirmQuit),
                 }
             }
             Self::GoTo(b) => match process_prompt_keypress(b, key) {
@@ -1518,8 +1529,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case(100, true, 12345, "\u{1b}[38;5;240m12345 │\u{1b}[m")]
-    #[case(100, true, "~", "\u{1b}[38;5;240m~ │\u{1b}[m")]
+    #[case(100, true, 12345, "\u{1b}[38;2;127;132;156m12345 │\u{1b}[m")]
+    #[case(100, true, "~", "\u{1b}[38;2;127;132;156m~ │\u{1b}[m")]
     #[case(10, true, 12345, "")]
     #[case(10, true, "~", "")]
     #[case(100, false, 12345, "12345 │")]
@@ -1796,5 +1807,44 @@ mod tests {
         assert_eq!(editor.clipboard, b"xyz", "duplicate does not use the clipboard");
         assert_eq!(editor.n_bytes, 22, "n_bytes includes the duplicated row");
         assert!(editor.dirty, "duplicate marks the buffer as modified");
+    }
+
+    #[test]
+    fn quit_without_changes_exits_immediately() {
+        let mut editor = editor_with(b"Hello", (0, 0));
+        editor.dirty = false;
+
+        assert_eq!(editor.process_keypress(&Key::Char(EXIT)), (true, None));
+    }
+
+    #[test]
+    fn quit_with_changes_asks_for_confirmation() {
+        let mut editor = editor_with(b"Hello", (0, 0));
+        editor.dirty = true;
+
+        let (should_quit, prompt_mode) = editor.process_keypress(&Key::Char(EXIT));
+        assert!(!should_quit);
+        assert_eq!(prompt_mode, Some(PromptMode::ConfirmQuit));
+
+        // Unrelated keys keep the prompt open
+        let prompt_mode = PromptMode::ConfirmQuit.process_keypress(&mut editor, &Key::Char(b'x'));
+        assert_eq!(prompt_mode, Some(PromptMode::ConfirmQuit));
+        assert!(!editor.quit_confirmed);
+
+        // 'n' cancels
+        let prompt_mode = PromptMode::ConfirmQuit.process_keypress(&mut editor, &Key::Char(b'n'));
+        assert_eq!(prompt_mode, None);
+        assert!(!editor.quit_confirmed);
+
+        // 'y' confirms
+        let prompt_mode = PromptMode::ConfirmQuit.process_keypress(&mut editor, &Key::Char(b'y'));
+        assert_eq!(prompt_mode, None);
+        assert!(editor.quit_confirmed);
+
+        // Ctrl+Q confirms too
+        editor.quit_confirmed = false;
+        let prompt_mode = PromptMode::ConfirmQuit.process_keypress(&mut editor, &Key::Char(EXIT));
+        assert_eq!(prompt_mode, None);
+        assert!(editor.quit_confirmed);
     }
 }

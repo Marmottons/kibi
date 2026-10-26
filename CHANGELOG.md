@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Syntax highlighting for 19 more languages and file types, generated from the
+  [bat](https://github.com/sharkdp/bat) syntaxes with `scripts/import_bat_syntaxes.py`
+  (comments, strings, numbers and keywords only)
+- Syntax files can now match a whole file name (e.g. `Makefile`, `Dockerfile`); when several
+  syntaxes match, the longest matching extension wins
 - <kbd>Ctrl</kbd> + <kbd>U</kbd> to delete the text before the cursor (recoverable with
   <kbd>Ctrl</kbd> + <kbd>Z</kbd>, not stored in the clipboard)
 - <kbd>Ctrl</kbd> + <kbd>K</kbd> to delete the text after the cursor (recoverable with
@@ -20,18 +25,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - <kbd>Ctrl</kbd> + <kbd>Z</kbd> to undo the last modifying shortcut action (single level:
   <kbd>Ctrl</kbd> + <kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd>/<kbd>U</kbd>/<kbd>D</kbd>/<kbd>R</kbd>/<kbd>/</kbd>)
 
-### Fixed
-
-- Unassigned <kbd>Ctrl</kbd> + key combinations no longer insert control characters
-  into the buffer (which could render as unexpected characters/colors)
-
 ### Changed
 
+- <kbd>Ctrl</kbd> + <kbd>Q</kbd> now asks for confirmation (<kbd>y</kbd>/<kbd>n</kbd>, or
+  <kbd>Ctrl</kbd> + <kbd>Q</kbd> again) when there are unsaved changes. The `quit_times` option has been removed.
+- `.mjs`, `.cjs`, `.jsx` and `.es6` files use the JavaScript syntax; `ash`, `.bash_functions`,
+  `.bash_completions`, `.bash_variables`, `PKGBUILD`, `.ebuild` and `.eclass` files use the Bash syntax
+- Syntax highlighting uses the 24-bit colors of the Catppuccin Mocha theme, as bat does, with new
+  categories (built-ins, types, functions, operators, punctuation, escapes in strings) and options
+  (`highlight_function_calls`, `highlight_operators`, `highlight_punctuation`,
+  `highlight_capitalized`, `highlight_commands`, `type_definition_keywords`, ...). The keywords of
+  the syntax files are sorted in these categories with the colors that bat uses
+- Multi-line comment delimiters are trimmed (`/*, */` used to expect ` */`)
+- Markdown code blocks are highlighted with the syntax of their language, e.g. ```` ```rust ````
+- Syntax highlighting of configuration files (keys, values and sections), Markdown, HTML/XML, CSS,
+  shell variables and options, function parameters, docstrings, decorators, attributes and
+  negative numbers, enabled per language with new options (see the README)
 - <kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>X</kbd> / <kbd>Ctrl</kbd> + <kbd>V</kbd> now
   copy / cut / paste the text after the cursor instead of whole lines; paste inserts the
   copied text at the cursor position. When the cursor is at the end of the line,
   <kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>X</kbd> act on the whole line
 - <kbd>Ctrl</kbd> + <kbd>X</kbd> no longer removes the entire line, use <kbd>Ctrl</kbd> + <kbd>R</kbd> for that
+
+### Fixed
+
+- Unassigned <kbd>Ctrl</kbd> + key combinations no longer insert control characters
+  into the buffer (which could render as unexpected characters/colors)
+
+### Removed
+
+- Syntax files for old or rarely used languages and file types: PHP, CoffeeScript, D, Processing,
+  Raku, RSS, Racket, V, NoSQL, PRQL, LRC, gitignore, ZSH, NuShell, PowerShell and OCaml
+- The 1024-line limit and its CI check (`cargo xtask count-loc`)
+- Files specific to the original repository: release, security, sanitizers, REUSE and mirror
+  workflows, fuzzing, Android CI, screenshots and recordings, issue templates, CODEOWNERS, Allstar
+  and all-contributors configurations, code of conduct and security policy
 
 ## [0.3.3] - 2026-01-01
 

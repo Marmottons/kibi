@@ -16,9 +16,6 @@ use crate::sys::conf_dirs as cdirs;
 pub struct Config {
     /// The size of a tab. Must be > 0.
     pub tab_stop: NonZeroUsize,
-    /// The number of confirmations needed before quitting, when changes have
-    /// been made since the file was last changed.
-    pub quit_times: usize,
     /// The duration for which messages are shown in the status bar.
     pub message_dur: Duration,
     /// Whether to display line numbers.
@@ -31,7 +28,6 @@ impl Default for Config {
         Self {
             #[expect(clippy::unwrap_used)]
             tab_stop: NonZeroUsize::new(4).unwrap(),
-            quit_times: 2,
             message_dur: Duration::new(3, 0),
             show_line_num: true,
         }
@@ -60,7 +56,6 @@ impl Config {
             process_ini_file(path, &mut |key, value| {
                 match key {
                     "tab_stop" => conf.tab_stop = parse_value(value)?,
-                    "quit_times" => conf.quit_times = parse_value(value)?,
                     "message_duration" =>
                         conf.message_dur = Duration::try_from_secs_f32(parse_value(value)?)
                             .map_err(|x| x.to_string())?,
@@ -258,14 +253,15 @@ mod tests {
     ) {
         let custom_config = Config {
             tab_stop: NonZeroUsize::new(99).unwrap(),
-            quit_times: 50,
+            message_dur: Duration::new(50, 0),
             ..Config::default()
         };
         let ini_content = format!(
             "# Configuration file
              tab_stop  = {}
-             quit_times={}",
-            custom_config.tab_stop, custom_config.quit_times
+             message_duration={}",
+            custom_config.tab_stop,
+            custom_config.message_dur.as_secs()
         );
 
         fs::create_dir_all(kibi_config_home).unwrap();

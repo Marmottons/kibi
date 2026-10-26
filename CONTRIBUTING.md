@@ -10,12 +10,7 @@ documentation, or proposing a new feature, your help is appreciated.
 
 ## Table of contents
 
-- [Code of Conduct](#code-of-conduct)
 - [Reporting issues](#reporting-issues)
-  - [Feature Requests](#feature-requests)
-  - [Submitting a bug report](#submitting-a-bug-report)
-  - [Security Vulnerabilities](#security-vulnerabilities)
-  - [Asking Questions](#asking-questions)
 - [Development Environment Setup](#development-environment-setup)
   - [Install Rust](#install-rust)
   - [Clone the Repository](#clone-the-repository)
@@ -27,51 +22,17 @@ documentation, or proposing a new feature, your help is appreciated.
   - [Run Tests](#run-tests)
   - [Format Code](#format-code)
   - [Run Linters (Nightly)](#run-linters-nightly)
-  - [Count Lines of Code](#count-lines-of-code)
-  - [Optional: Fuzz Testing](#optional-fuzz-testing)
+- [Syntax Highlighting Files](#syntax-highlighting-files)
 - [Dependency Policy](#dependency-policy)
 - [Submitting a Pull Request](#submitting-a-pull-request)
 - [License](#license)
 
-## Code of Conduct
-
-We are committed to providing a friendly, safe, and welcoming environment for all.
-
-Please review our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
-
 ## Reporting issues
 
-### Feature Requests
-
-If you have an idea for a new feature, please [open a new issue using the _Feature
-Request_ template](https://github.com/ilai-deutel/kibi/issues/new?template=feature_request.md).
-
-> [!NOTE]
-> Due to the constraint on the maximum number of lines of code for Kibi, be
-aware that some complex features may not be feasibly implemented. If you are not
-sure if the feature is too complex, feel free to open a feature request, where
-we can further discuss the complexity involved.
-
-### Submitting a bug report
-
-> [!IMPORTANT]
-> If you want to report a security vulnerability, please refer to the [_Security
-> Vulnerabilities_ section](#security-vulnerabilities) below.
-
-If you find a bug, please [create an issue using the _Bug Report_ template](https://github.com/ilai-deutel/kibi/issues/new?template=bug_report.md).
-Provide as much detail as possible, including steps to reproduce the issue and
-the expected behavior.
-
-### Security Vulnerabilities
-
-Please do not report security vulnerabilities via public GitHub issues. Refer to
-the [Security Policy](SECURITY.md) for instructions on how to report them safely.
-
-### Asking Questions
-
-If you have reviewed existing documentation and still have questions or are
-having problems, you can [open a discussion](https://github.com/ilai-deutel/kibi/discussions/new/choose)
-asking for help.
+If you find a bug or have an idea for a new feature, please [open an
+issue](https://github.com/Marmottons/kibi/issues/new). For bugs, provide as much
+detail as possible, including steps to reproduce the issue and the expected
+behavior.
 
 ## Development Environment Setup
 
@@ -91,7 +52,7 @@ rustup toolchain install nightly --component rustfmt --component clippy --allow-
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/ilai-deutel/kibi.git
+git clone https://github.com/Marmottons/kibi.git
 cd kibi
 ```
 
@@ -121,11 +82,6 @@ If your change introduces a new feature, please ensure it is appropriately teste
 - CLI changes can be tested using **integration tests**  (see
   [documentation](https://doc.rust-lang.org/book/ch11-03-test-organization.html#integration-tests)).
   Integration tests are located within the [`tests/`](tests/) directory.
-- **Optional: fuzz testing** can also be used to find security and stability
-  issues by automatically providing pseudo-random data as input to high-level
-  functions (see [documentation](https://rust-fuzz.github.io/book/)). Fuzz tests
-  for Kibi are located within the [`fuzz/`](fuzz/) directory. Refer to the
-  [_Fuzz Testing_ section](#optional-fuzz-testing) to run the fuzz tests.
 
 ### For bug fixes
 
@@ -165,27 +121,13 @@ mistakes and enforce idiomatic Rust.
 cargo +nightly clippy
 ```
 
-### Count Lines of Code
+## Syntax Highlighting Files
 
-Ensure you are within the limits.
-
-```bash
-cargo xtask count-loc
-```
-
-### Optional: Fuzz Testing
-
-If you are changing the logic of configuration parsing, you may want to run the
-fuzz tests. This is not mandatory for every contribution but is appreciated for
-complex changes to configuration parsing.
-
-```bash
-# Requires cargo-fuzz
-cargo +nightly install cargo-fuzz
-
-MAX_TOTAL_TIME=300  # How long to run the test, in seconds
-CARGO_PROFILE_RELEASE_LTO=false cargo +nightly fuzz run fuzz_config_load -- -max_total_time="$MAX_TOTAL_TIME"
-```
+Most files in [`syntax.d`](syntax.d) are generated from the syntaxes and the
+Catppuccin Mocha theme of [bat](https://github.com/sharkdp/bat) by
+[`scripts/import_bat_syntaxes.py`](scripts/import_bat_syntaxes.py) (see the
+instructions at the top of the script). Regenerating them requires bat, Python,
+`pyyaml` and `ruamel.yaml`; using Kibi does not.
 
 ## Dependency Policy
 
@@ -195,8 +137,8 @@ Kibi aims to have minimal dependencies.
 explicitly discussing it in an issue first. Most features should be implemented
 using the Rust standard library.
 - **Dev Dependencies:** Adding dependencies for testing or development tools
-(e.g. within `[dev-dependencies]`, or [`xtask/Cargo.toml`](xtask/Cargo.toml))
-is generally acceptable, provided they are justified.
+(e.g. within `[dev-dependencies]`) is generally acceptable, provided they are
+justified.
 
 ## Submitting a Pull Request
 
@@ -212,9 +154,7 @@ Changes to code for Kibi are made through Pull Requests on GitHub.
 2. **Commits:** Similarly, we do not enforce a convention for commit messages,
    but please ensure they are descriptive enough.
 3. **Push & Open PR:** Push your branch to GitHub and open a Pull Request.
-4. **Description:** Fill out the PR description clearly. If you had to refactor
-   code to stay under the 1024-line limit, please mention what was changed to
-   make room.
+4. **Description:** Fill out the PR description clearly.
 5. **Checks:** After you submit the pull request, continuous integration checks
    will be run using GitHub Actions to enforce that the commit conforms to Kibi's
    quality guidelines (tests, formatting, etc.). Please ensure all checks pass,

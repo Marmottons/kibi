@@ -3,8 +3,6 @@ updates:
   - package-ecosystem: cargo
     directories:
       - "/"
-      - "/fuzz/"
-      - "/xtask/"
     schedule:
       interval: weekly
     cooldown:
