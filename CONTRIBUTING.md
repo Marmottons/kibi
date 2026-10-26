@@ -154,11 +154,8 @@ Changes to code for Kibi are made through Pull Requests on GitHub.
 2. **Commits:** Similarly, we do not enforce a convention for commit messages,
    but please ensure they are descriptive enough.
 3. **Push & Open PR:** Push your branch to GitHub and open a Pull Request.
-4. **Description:** Fill out the PR description clearly.
-5. **Checks:** After you submit the pull request, continuous integration checks
-   will be run using GitHub Actions to enforce that the commit conforms to Kibi's
-   quality guidelines (tests, formatting, etc.). Please ensure all checks pass,
-   fixing surfaced issues as needed.
+4. **Description:** Fill out the PR description clearly, and make sure that the
+   checks of the [Verifying Your Changes](#verifying-your-changes) section pass.
 
 ## License
 

@@ -57,9 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Syntax files for old or rarely used languages and file types: PHP, CoffeeScript, D, Processing,
   Raku, RSS, Racket, V, NoSQL, PRQL, LRC, gitignore, ZSH, NuShell, PowerShell and OCaml
 - The 1024-line limit and its CI check (`cargo xtask count-loc`)
+- Continuous integration (GitHub Actions workflows)
 - Files specific to the original repository: release, security, sanitizers, REUSE and mirror
-  workflows, fuzzing, Android CI, screenshots and recordings, issue templates, CODEOWNERS, Allstar
-  and all-contributors configurations, code of conduct and security policy
+  workflows, fuzzing, screenshots and recordings, issue templates, CODEOWNERS, Allstar and
+  all-contributors configurations, code of conduct and security policy
 
 ## [0.3.3] - 2026-01-01
 
